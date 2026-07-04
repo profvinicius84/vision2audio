@@ -115,6 +115,8 @@ Wave 2 has concrete evidence for pass/fail/deferred gates, and current context a
 | Android 11 OTG selection failed with `Failed resolution of: Lcom/jiangdg/usb/USBMonitor;` | AUSBC Android Binding Specialist / Human tester | Packaging blocker resolved: compatible `libuvc-3.2.9.aar` is included and clean Release APK DEX inspection found `Lcom/jiangdg/usb/USBMonitor;`. Retest on physical Android 11 hardware to confirm runtime behavior. |
 | Android 11 validation later emitted `System.InvalidOperationException` without message/stack in Visual Studio output | MAUI Android Stack Specialist / Human tester | Targeted sanitized diagnostics were added around OTG/AUSBC preview/capture and lifecycle cleanup. Retest with the latest APK and collect `[Diagnostics]` lines if the exception recurs. |
 | Android 11 OTG capture failed with `Prévia OTG/AUSBC indisponível para captura.` | AUSBC Android Binding Specialist / Human tester | Root cause confirmed: capture still depended on `_previewView.Bitmap`, but the preview `TextureView` was unavailable at capture time. Capture now uses AUSBC `CameraUVC.CaptureImage(ICaptureCallBack, savePath)` to an app-private cache file, reads JPEG bytes, and deletes the temp file best-effort. Retest on physical Android 11 hardware. |
+| Android 11 OTG capture failed with `Captura OTG/AUSBC excedeu o tempo limite.` | AUSBC Android Binding Specialist / Human tester | Current follow-up added sanitized `otg-capture-*` diagnostics and switched AUSBC request render mode to OpenGL. Retest required to confirm whether `CaptureImage` callbacks now fire. |
+| App stopped reading `secrets.local` | MAUI Android Stack Specialist / Human tester | Local secret loading now supports both `secrets.local.json` and `secrets.local` as explicitly packaged Debug/local assets, while Release packaging verification confirmed no `secrets.local*` or secret-like APK entries. |
 | Android SDK `adb` unavailable | Human / Testing specialist | Install/configure Android SDK platform tools or run validation in an environment with emulator/device access. |
 | Android 16 native library warnings remain | Testing specialist | Record as known limitation, not a Wave 2 blocker for Android 11. |
 
@@ -167,6 +169,69 @@ Wave 2 has concrete evidence for pass/fail/deferred gates, and current context a
   - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed with 0 warnings and 0 errors.
   - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed; APKs produced under `src/Vision2Audio.App/bin/Release/net10.0-android/android-arm64/publish/`.
 - Remaining validation: rerun Android 11 OTG capture. If failure remains, collect `[Diagnostics] Operation=otg-capture-ausbc-image` or `[Diagnostics] Operation=otg-capture-timeout` lines.
+
+## Follow-up local secrets and capture-timeout diagnostics
+
+- Human report: the app stopped reading `secrets.local`; human also added `AndroidUSBCamera-3.6.0.zip` and noted the maintained fork/successor should be preferred for new 2026 projects.
+- Secret-loading fix: `AppPackageOpenAiSecretsProvider` now checks both `secrets.local.json` and `secrets.local`. The Android app project explicitly excludes both from default packaging, then includes them as app package assets only for Debug or when `IncludeLocalSecretsInAppPackage=true` is explicitly set.
+- Secret validation: Release APK inspection found no entries matching `secrets.local`, `secrets.local.json`, `OPENAI`, `openAiApiKey`, or `apiKey`.
+- AUSBC artifact status: no migration to `AndroidUSBCamera-3.6.0` has been recorded yet; the binding project still references the compatible `3.2.9` AAR set. The 3.6.0 zip remains a candidate for follow-up artifact evaluation if timeout persists.
+- Capture-timeout follow-up: added sanitized capture diagnostics such as `otg-capture-ausbc-start` / callback-related diagnostics and changed AUSBC request render mode to OpenGL. Manual retest is required to confirm whether `CameraUVC.CaptureImage` now invokes callbacks instead of timing out.
+- Validation after this follow-up:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.AusbcBinding/Vision2Audio.AusbcBinding.csproj -f net10.0-android -v:minimal` — passed with generated-binding warnings.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed with Android 16 native page-size warnings.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed.
+- Remaining validation: rerun Android 11 OTG preview/capture. If capture still times out, collect lines containing `otg-capture-ausbc-start`, `otg-capture-callback`, `OnBegin`, `OnComplete`, `OnError`, `otg-capture-timeout`, and `otg-capture-ausbc-image`.
+
+## Follow-up priority capture UX cleanup
+
+- Human priority change: OTG remains unresolved, but immediate priorities became physical Volume Up capture, recovery after capture, captured-image freeze, scrollable screen, and reduced visible UI text.
+- Fix applied: Android `MainActivity` now treats `VolumeUp` as a capture trigger alongside existing keyboard/remote keys, ignores repeat events, and applies a short debounce to avoid duplicate captures.
+- Capture flow fix: trigger path now routes through command state, uses a capture guard to prevent concurrent captures, and resets busy/command state so another capture can be taken after completion.
+- Captured still behavior: after successful capture, the last image is shown over/in place of live preview and live preview is paused. Starting another capture clears the still and resumes the capture flow.
+- UI cleanup: main content is inside a scroll view; visible main title `Vision 2 Audio`, `Prévia da câmera`, `Fonte ativa: ...`, and `Status da câmera: ...` labels were removed/reworded for a cleaner screen.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing AUSBC/native Android 16 page-size warnings.
+  - Debug Android build was blocked in one run by `Visual Studio 2026 Remote Debugger` locking `Vision2Audio.App.dll`; Release publish passed.
+- Remaining validation: manual Android retest for scroll, removed text, Volume Up/remote capture, captured-image freeze, and second capture after freeze.
+
+## Follow-up app polish, loading, audio lifecycle, and accessible prompt
+
+- Human priorities: use `logo.jpeg` as app icon, show loading while the AI request is running, resume live camera after audio finishes, interrupt audio when the physical trigger is pressed during playback, always include exact/approximate location in the description, and always frame the description for a visually impaired user with movement guidance.
+- App icon: `logo.jpeg` from the repository root is configured as the MAUI app icon. Release APK inspection confirmed generated `appicon`/`appicon_round` resources.
+- Loading: main UI now shows an `ActivityIndicator` with `Analisando com IA...` specifically while the OpenAI/AI description request is active.
+- Audio/preview lifecycle: after successful capture, the captured still remains while audio plays; after TTS finishes, the still clears and live preview resumes. If the trigger is pressed during audio playback, TTS is cancelled/interrupted, the still clears, preview resumes, and the app returns to ready state for the next photo. Concurrent capture guard remains.
+- Prompt/location: OpenAI prompt always states that the user is visually impaired and asks for practical movement/navigation guidance, safety notes, obstacles, landmarks, and next steps in Brazilian Portuguese. Location context is always included: exact/approximate coordinates and accuracy when available, or an explicit unavailable/approximate note when GPS is unavailable.
+- Location failure behavior: the coordinator no longer fails the whole request solely because GPS is unavailable; it proceeds with null/unavailable location context.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed with existing AUSBC native Android 16 page-size warnings.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
+- Remaining validation: manual Android test for icon, AI loading indicator, audio-finish preview resume, trigger-during-audio interruption, repeated capture, and location/navigation guidance in returned descriptions.
+
+## Follow-up human-readable location correction
+
+- Human correction: location must not be described as latitude/longitude because a person cannot decode raw coordinates; it must be an address/place.
+- Fix applied: GPS coordinates are still acquired internally, but `LocationService` now reverse-geocodes them through MAUI geocoding and formats a human-readable approximate address from available placemark fields such as street/number, neighborhood/locality, state/region, and country.
+- Prompt behavior: OpenAI prompt now uses `Endereço/local aproximado da pessoa: ...` and explicitly instructs the model not to use or mention latitude/longitude to the user.
+- Fallback behavior: if reverse geocoding fails, the prompt says the approximate address was not found; if GPS is unavailable, the request still proceeds and says location/address is unavailable. Raw coordinates are not exposed to the user-facing prompt.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed with existing AUSBC Android 16 page-size warnings.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
+- Remaining validation: manual Android test with location permission enabled and disabled/network geocoding unavailable to confirm descriptions reference readable address/place or a no-address fallback, never latitude/longitude.
+
+## Follow-up AI location translation wording
+
+- Human request: ask the AI to translate longitude/latitude together with the image description.
+- Implemented interpretation: the prompt now explicitly asks the AI to convert available location context into natural address/place language and integrate it with the scene description, while preserving the accessibility rule that raw latitude/longitude must not be spoken to the user.
+- If reverse-geocoded address/place is available, the AI is instructed to use it naturally. If address lookup failed, the prompt says the address could not be identified and still forbids mentioning latitude/longitude numbers.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed after retry; existing AUSBC Android 16 page-size warnings remain.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
 
 ## Follow-up resolution blocker fix
 

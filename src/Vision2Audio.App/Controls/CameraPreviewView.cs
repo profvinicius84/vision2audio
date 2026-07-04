@@ -21,6 +21,13 @@ public sealed class CameraPreviewView : View
         typeof(CameraPreviewView),
         0L);
 
+    /// <summary>Bindable pause flag used to stop live preview while a captured still is displayed.</summary>
+    public static readonly BindableProperty IsPausedProperty = BindableProperty.Create(
+        nameof(IsPaused),
+        typeof(bool),
+        typeof(CameraPreviewView),
+        false);
+
     /// <summary>Current selection to preview.</summary>
     public CameraSelectionKind SelectionKind
     {
@@ -33,6 +40,13 @@ public sealed class CameraPreviewView : View
     {
         get => (long)GetValue(RefreshTokenProperty);
         set => SetValue(RefreshTokenProperty, value);
+    }
+
+    /// <summary>Stops the live preview without disposing the view.</summary>
+    public bool IsPaused
+    {
+        get => (bool)GetValue(IsPausedProperty);
+        set => SetValue(IsPausedProperty, value);
     }
 
     /// <summary>Creates the preview host.</summary>

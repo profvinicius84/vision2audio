@@ -8,8 +8,10 @@ Place AndroidUSBCamera/AUSBC build artifacts here before enabling the binding:
   - `libnative-release.aar`
   - `libuvc-3.2.9.aar`, `libnative-3.2.9.aar`, `libutils-3.2.9.aar`, and `libuvccommon-3.2.9.aar` extracted from `AndroidUSBCamera-3.3.3.zip` are currently present as the compatible runtime set.
 
-Recommended source: https://github.com/jiangdongguo/AndroidUSBCamera
+Recommended source for the current bound API: AndroidUSBCamera/AUSBC artifacts that keep the `com.jiangdg.*` package names.
 
 Build or download the AUSBC artifacts, then rebuild `Vision2Audio.AusbcBinding` and inspect generated C# namespaces before wiring direct preview/capture calls. If OTG startup fails with `Failed resolution of: Lcom/jiangdg/usb/USBMonitor;`, replace the UVC dependency artifact with the same AndroidUSBCamera/AUSBC version used to build `libausbc-release.aar`; the runtime class is not supplied by the older Serenegiant-package UVC AAR.
 
 Current note: `Vision2Audio.AusbcBinding.csproj` prefers the `3.2.9` AARs when present and falls back to the older `*-release.aar` artifacts only when the compatible files are absent.
+
+`AndroidUSBCamera-3.6.0.zip` was inspected in July 2026. It contains updated source and `libnative/aar/libnative-3.2.9.aar` plus `libuvc/aar/libuvc-3.2.9.aar`, but it does not contain a prebuilt `libausbc-release.aar`. Current app binding still depends on `libausbc-release.aar`, so a full migration to 3.6.0 requires building a matching `libausbc` AAR first; do not mix a new UVC/native pair with an old libausbc unless validating the full class/API set together.

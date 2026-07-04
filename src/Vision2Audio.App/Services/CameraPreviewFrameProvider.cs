@@ -49,7 +49,7 @@ public sealed class CameraPreviewFrameProvider : ICameraPreviewFrameProvider
 
         if (textureView is null || !textureView.IsAvailable)
         {
-            return Result<SceneCapture>.Failure("Prévia da câmera indisponível.");
+            return Result<SceneCapture>.Failure("Visualização indisponível.");
         }
 
         try

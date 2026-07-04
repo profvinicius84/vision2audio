@@ -13,6 +13,12 @@ public sealed class SceneDescriptionCoordinator(
     IOpenAiSceneDescriptionService openAiService,
     IHistoryRepository historyRepository)
 {
+    /// <summary>Last successfully captured scene image, before description/location processing.</summary>
+    public SceneCapture? LastCapture { get; private set; }
+
+    /// <summary>Raised while the remote AI description request is active.</summary>
+    public event EventHandler<bool>? DescriptionRequestStateChanged;
+
     /// <summary>Captures and describes the current scene.</summary>
     public async Task<Result<SceneDescription>> CaptureAndDescribeAsync(CancellationToken cancellationToken)
     {
@@ -27,21 +33,26 @@ public sealed class SceneDescriptionCoordinator(
             return Result<SceneDescription>.Failure(captureResult.Error ?? "Não foi possível capturar a cena.");
         }
 
+        LastCapture = captureResult.Value;
+
         var locationResult = await locationService.GetCurrentLocationAsync(cancellationToken);
-        if (!locationResult.IsSuccess || locationResult.Value is null)
+        GeoCoordinate? location = locationResult.IsSuccess ? locationResult.Value : null;
+
+        try
         {
-            return Result<SceneDescription>.Failure(locationResult.Error ?? "Não foi possível obter a localização.");
+            DescriptionRequestStateChanged?.Invoke(this, true);
+            var descriptionResult = await openAiService.DescribeAsync(captureResult.Value, location, cancellationToken);
+            if (!descriptionResult.IsSuccess || descriptionResult.Value is null)
+            {
+                return Result<SceneDescription>.Failure(descriptionResult.Error ?? "Não foi possível obter a descrição.");
+            }
+
+            await historyRepository.AddAsync(descriptionResult.Value, location, cancellationToken);
+            return descriptionResult;
         }
-
-        GeoCoordinate? location = locationResult.Value;
-
-        var descriptionResult = await openAiService.DescribeAsync(captureResult.Value, location, cancellationToken);
-        if (!descriptionResult.IsSuccess || descriptionResult.Value is null)
+        finally
         {
-            return Result<SceneDescription>.Failure(descriptionResult.Error ?? "Não foi possível obter a descrição.");
+            DescriptionRequestStateChanged?.Invoke(this, false);
         }
-
-        await historyRepository.AddAsync(descriptionResult.Value, location, cancellationToken);
-        return descriptionResult;
     }
 }

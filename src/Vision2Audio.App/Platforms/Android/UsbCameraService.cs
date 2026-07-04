@@ -129,6 +129,7 @@ public sealed class UsbCameraService : IUsbCameraService
 
         try
         {
+            Log.Debug("Vision2Audio", $"[Diagnostics] Operation=otg-capture-ausbc-start; CameraOpened={camera.IsCameraOpened}");
             camera.CaptureImage(callback, capturePath);
             var completedPath = await callback.WaitForCompletionAsync(linkedCts.Token);
             var pathToRead = string.IsNullOrWhiteSpace(completedPath) ? capturePath : completedPath;
@@ -347,7 +348,7 @@ public sealed class UsbCameraService : IUsbCameraService
             builder.SetAudioSource(audioSource);
         }
 
-        if (CameraRequest.RenderMode.Normal is { } renderMode)
+        if (CameraRequest.RenderMode.Opengl is { } renderMode)
         {
             builder.SetRenderMode(renderMode);
         }
@@ -608,13 +609,21 @@ public sealed class UsbCameraService : IUsbCameraService
 
         public void OnBegin()
         {
+            Log.Debug("Vision2Audio", "[Diagnostics] Operation=otg-capture-callback; Event=OnBegin");
         }
 
         public void OnComplete(string? path)
-            => _completion.TrySetResult(path ?? string.Empty);
+        {
+            Log.Debug("Vision2Audio", $"[Diagnostics] Operation=otg-capture-callback; Event=OnComplete; HasPath={!string.IsNullOrWhiteSpace(path)}");
+            _completion.TrySetResult(path ?? string.Empty);
+        }
 
         public void OnError(string? error)
-            => _completion.TrySetException(new InvalidOperationException($"Falha AUSBC ao capturar imagem OTG: {Vision2Audio.Core.Diagnostics.SanitizedExceptionDiagnostics.SanitizeForStatus(error)}"));
+        {
+            var sanitizedError = Vision2Audio.Core.Diagnostics.SanitizedExceptionDiagnostics.SanitizeForStatus(error);
+            Log.Debug("Vision2Audio", $"[Diagnostics] Operation=otg-capture-callback; Event=OnError; Message={sanitizedError}");
+            _completion.TrySetException(new InvalidOperationException($"Falha AUSBC ao capturar imagem OTG: {sanitizedError}"));
+        }
 
         public async Task<string> WaitForCompletionAsync(CancellationToken cancellationToken)
         {

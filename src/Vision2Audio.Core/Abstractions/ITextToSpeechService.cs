@@ -9,4 +9,7 @@ public interface ITextToSpeechService
 {
     /// <summary>Speaks the provided text.</summary>
     Task SpeakAsync(SceneDescription description, CancellationToken cancellationToken);
+
+    /// <summary>Stops any active speech.</summary>
+    Task StopAsync();
 }

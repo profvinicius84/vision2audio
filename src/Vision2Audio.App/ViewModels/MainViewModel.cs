@@ -22,10 +22,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly TriggerHub _triggerHub;
     private readonly AsyncRelayCommand _captureCommand;
     private readonly AsyncRelayCommand _clearHistoryCommand;
+    private readonly SemaphoreSlim _captureGate = new(1, 1);
     private bool _isSynchronizingCameraSelection;
     private bool _isBusy;
+    private bool _isRequestingDescription;
+    private bool _isSpeaking;
     private string _statusMessage = "Pronto para capturar.";
     private string _latestDescription = "Nenhuma descrição ainda.";
+    private ImageSource? _capturedImageSource;
+    private bool _isCapturedImageVisible;
+    private bool _isPreviewPaused;
+    private DateTimeOffset? _displayedCaptureTime;
+    private CancellationTokenSource? _speechCancellationTokenSource;
 
     /// <summary>Requests the UI to show an alert.</summary>
     public event EventHandler<string>? AlertRequested;
@@ -46,6 +54,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _captureCommand = new AsyncRelayCommand(CaptureAsync, () => !IsBusy);
         _clearHistoryCommand = new AsyncRelayCommand(ClearHistoryAsync, () => !IsBusy);
         _triggerHub.Triggered += HandleTriggered;
+        _coordinator.DescriptionRequestStateChanged += HandleDescriptionRequestStateChanged;
         CaptureCommand = _captureCommand;
         ClearHistoryCommand = _clearHistoryCommand;
         CameraChoices =
@@ -83,6 +92,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             _captureCommand.RaiseCanExecuteChanged();
             _clearHistoryCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>Shows whether the OpenAI description request is active.</summary>
+    public bool IsRequestingDescription
+    {
+        get => _isRequestingDescription;
+        private set
+        {
+            if (_isRequestingDescription == value)
+            {
+                return;
+            }
+
+            _isRequestingDescription = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Shows whether text-to-speech playback is active.</summary>
+    public bool IsSpeaking
+    {
+        get => _isSpeaking;
+        private set
+        {
+            if (_isSpeaking == value)
+            {
+                return;
+            }
+
+            _isSpeaking = value;
+            OnPropertyChanged();
         }
     }
 
@@ -133,6 +174,54 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Token that forces the preview handler to restart.</summary>
     public long PreviewRefreshToken { get; private set; }
 
+    /// <summary>Still image shown after a successful capture.</summary>
+    public ImageSource? CapturedImageSource
+    {
+        get => _capturedImageSource;
+        private set
+        {
+            if (_capturedImageSource == value)
+            {
+                return;
+            }
+
+            _capturedImageSource = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Shows the captured still over the preview.</summary>
+    public bool IsCapturedImageVisible
+    {
+        get => _isCapturedImageVisible;
+        private set
+        {
+            if (_isCapturedImageVisible == value)
+            {
+                return;
+            }
+
+            _isCapturedImageVisible = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Pauses live preview while the captured still is displayed.</summary>
+    public bool IsPreviewPaused
+    {
+        get => _isPreviewPaused;
+        private set
+        {
+            if (_isPreviewPaused == value)
+            {
+                return;
+            }
+
+            _isPreviewPaused = value;
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Current selected camera choice.</summary>
     public CameraSelectionChoice? SelectedCameraChoice
     {
@@ -169,6 +258,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _selectedCameraKind = cameraState.SelectedKind;
             SelectedCameraKind = GetPreviewSelection(cameraState);
             PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
+            ClearCapturedImage();
             ActiveCameraSource = cameraState.DisplayName;
             CameraPreviewStatus = cameraState.StatusMessage;
             IsFallbackActive = cameraState.IsFallback;
@@ -196,6 +286,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var cameraState = await _cameraSourceCoordinator.SetPreferredSelectionAsync(selection, CancellationToken.None);
             SelectedCameraKind = GetPreviewSelection(cameraState);
             PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
+            ClearCapturedImage();
             ActiveCameraSource = cameraState.DisplayName;
             CameraPreviewStatus = cameraState.StatusMessage;
             IsFallbackActive = cameraState.IsFallback;
@@ -216,12 +307,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task CaptureAsync()
     {
+        if (IsSpeaking)
+        {
+            await StopSpeechAndResumePreviewAsync("Pronto para nova captura.");
+            return;
+        }
+
+        if (!await _captureGate.WaitAsync(0))
+        {
+            return;
+        }
+
         IsBusy = true;
         StatusMessage = "Capturando cena...";
 
         try
         {
+            await PreparePreviewForCaptureAsync();
             var result = await _coordinator.CaptureAndDescribeAsync(CancellationToken.None);
+            ShowLatestCapturedImageIfAvailable();
+
             if (!result.IsSuccess || result.Value is null)
             {
                 StatusMessage = result.Error ?? "Falha ao descrever a cena.";
@@ -234,7 +339,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             LatestDescription = result.Value.Text;
             StatusMessage = "Descrição pronta.";
-            await _textToSpeechService.SpeakAsync(result.Value, CancellationToken.None);
+            _ = SpeakAndResumePreviewAsync(result.Value);
             await RefreshHistoryAsync(CancellationToken.None);
         }
         catch (Exception ex)
@@ -245,6 +350,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         finally
         {
             IsBusy = false;
+            _captureGate.Release();
         }
     }
 
@@ -277,10 +383,107 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void HandleTriggered(object? sender, EventArgs e)
     {
-        if (!IsBusy)
+        if (IsSpeaking)
         {
-            _ = CaptureAsync();
+            _ = StopSpeechAndResumePreviewAsync("Áudio interrompido. Pronto para nova captura.");
+            return;
         }
+
+        _captureCommand.Execute(null);
+    }
+
+    private void HandleDescriptionRequestStateChanged(object? sender, bool isActive)
+    {
+        IsRequestingDescription = isActive;
+        if (isActive)
+        {
+            StatusMessage = "Analisando com IA...";
+        }
+    }
+
+    private async Task SpeakAndResumePreviewAsync(SceneDescription description)
+    {
+        await StopSpeechOnlyAsync();
+        using var speechCancellationTokenSource = new CancellationTokenSource();
+        _speechCancellationTokenSource = speechCancellationTokenSource;
+        IsSpeaking = true;
+
+        try
+        {
+            await _textToSpeechService.SpeakAsync(description, speechCancellationTokenSource.Token);
+            StatusMessage = "Pronto para capturar.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_speechCancellationTokenSource, speechCancellationTokenSource))
+            {
+                _speechCancellationTokenSource = null;
+                IsSpeaking = false;
+                ClearCapturedImage();
+                PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
+                OnPropertyChanged(nameof(PreviewRefreshToken));
+            }
+        }
+    }
+
+    private async Task StopSpeechAndResumePreviewAsync(string statusMessage)
+    {
+        await StopSpeechOnlyAsync();
+        ClearCapturedImage();
+        PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
+        OnPropertyChanged(nameof(PreviewRefreshToken));
+        StatusMessage = statusMessage;
+    }
+
+    private async Task StopSpeechOnlyAsync()
+    {
+        var cancellationTokenSource = _speechCancellationTokenSource;
+        if (cancellationTokenSource is not null)
+        {
+            cancellationTokenSource.Cancel();
+        }
+
+        await _textToSpeechService.StopAsync();
+        _speechCancellationTokenSource = null;
+        IsSpeaking = false;
+    }
+
+    private async Task PreparePreviewForCaptureAsync()
+    {
+        if (!IsCapturedImageVisible && !IsPreviewPaused)
+        {
+            return;
+        }
+
+        ClearCapturedImage();
+        PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
+        OnPropertyChanged(nameof(PreviewRefreshToken));
+        await Task.Delay(350);
+    }
+
+    private void ShowLatestCapturedImageIfAvailable()
+    {
+        var capture = _coordinator.LastCapture;
+        if (capture is null || capture.CapturedAtUtc == _displayedCaptureTime)
+        {
+            return;
+        }
+
+        var imageBytes = capture.Data.ToArray();
+        CapturedImageSource = ImageSource.FromStream(() => new MemoryStream(imageBytes));
+        IsCapturedImageVisible = true;
+        IsPreviewPaused = true;
+        _displayedCaptureTime = capture.CapturedAtUtc;
+    }
+
+    private void ClearCapturedImage()
+    {
+        CapturedImageSource = null;
+        IsCapturedImageVisible = false;
+        IsPreviewPaused = false;
     }
 
     /// <inheritdoc />

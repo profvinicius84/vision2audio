@@ -19,7 +19,7 @@ namespace Vision2Audio.App;
 /// </summary>
 public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, FrameLayout>
 {
-    private const string PreviewUnavailableMessage = "Preview da câmera indisponível. Use a captura sem visualização ou tente novamente.";
+    private const string PreviewUnavailableMessage = "Visualização indisponível. Tente novamente.";
 
     private readonly CameraPreviewPlatformView _platformView;
     private ICameraPreviewFrameProvider? _frameProvider;
@@ -35,7 +35,8 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
     public static new IPropertyMapper<CameraPreviewView, CameraPreviewViewHandler> ViewMapper = new PropertyMapper<CameraPreviewView, CameraPreviewViewHandler>(ViewHandler.ViewMapper)
     {
         [nameof(CameraPreviewView.SelectionKind)] = MapSelectionKind,
-        [nameof(CameraPreviewView.RefreshToken)] = MapRefreshToken
+        [nameof(CameraPreviewView.RefreshToken)] = MapRefreshToken,
+        [nameof(CameraPreviewView.IsPaused)] = MapIsPaused
     };
 
     protected override FrameLayout CreatePlatformView() => _platformView;
@@ -70,6 +71,9 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
     private static void MapRefreshToken(CameraPreviewViewHandler handler, CameraPreviewView view)
         => handler._platformView.RestartPreview();
 
+    private static void MapIsPaused(CameraPreviewViewHandler handler, CameraPreviewView view)
+        => handler._platformView.SetPaused(view.IsPaused);
+
     private sealed class CameraPreviewPlatformView : FrameLayout, TextureView.ISurfaceTextureListener
     {
         private readonly AspectRatioTextureView _textureView;
@@ -82,6 +86,7 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
         private CameraCaptureSession? _session;
         private Surface? _previewSurface;
         private bool _isReady;
+        private bool _isPaused;
 
         public CameraPreviewPlatformView() : base(Android.App.Application.Context)
         {
@@ -97,7 +102,7 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
         {
             Log.Debug("Vision2Audio", $"[Preview] SetSelection {selection}");
             _selectionKind = selection;
-            if (_isReady)
+            if (_isReady && !_isPaused)
             {
                 ObserveLifecycleTask(RestartPreviewAsync(), "preview-selection-restart");
             }
@@ -124,6 +129,19 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
 
         public void SetUsbCameraService(IUsbCameraService? usbCameraService) => _usbCameraService = usbCameraService;
 
+        public void SetPaused(bool isPaused)
+        {
+            if (_isPaused == isPaused)
+            {
+                return;
+            }
+
+            _isPaused = isPaused;
+            ObserveLifecycleTask(
+                isPaused ? StopPreviewAsync(_usbCameraService) : RestartPreviewAsync(),
+                isPaused ? "preview-pause-stop" : "preview-pause-resume");
+        }
+
         protected override void OnDetachedFromWindow()
         {
             _isReady = false;
@@ -136,10 +154,21 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
             Log.Debug("Vision2Audio", "[Preview] Surface available");
             _isReady = true;
             _frameProvider?.Register(_textureView, _selectionKind);
-            ObserveLifecycleTask(RestartPreviewAsync(), "preview-surface-available-restart");
+            if (!_isPaused)
+            {
+                ObserveLifecycleTask(RestartPreviewAsync(), "preview-surface-available-restart");
+            }
         }
 
-        public void RestartPreview() => ObserveLifecycleTask(RestartPreviewAsync(), "preview-refresh-restart");
+        public void RestartPreview()
+        {
+            if (_isPaused)
+            {
+                return;
+            }
+
+            ObserveLifecycleTask(RestartPreviewAsync(), "preview-refresh-restart");
+        }
 
         public bool OnSurfaceTextureDestroyed(SurfaceTexture surface)
         {
@@ -161,9 +190,19 @@ public sealed class CameraPreviewViewHandler : ViewHandler<CameraPreviewView, Fr
         private async Task RestartPreviewAsync()
         {
             Log.Debug("Vision2Audio", "[Preview] RestartPreviewAsync enter");
+            if (_isPaused)
+            {
+                return;
+            }
+
             await _gate.WaitAsync();
             try
             {
+                if (_isPaused)
+                {
+                    return;
+                }
+
                 await StopPreviewLockedAsync();
 
                 var surfaceTexture = _textureView.SurfaceTexture;

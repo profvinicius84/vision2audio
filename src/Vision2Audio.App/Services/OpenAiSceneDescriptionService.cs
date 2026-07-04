@@ -29,7 +29,7 @@ public sealed class OpenAiSceneDescriptionService : IOpenAiSceneDescriptionServi
         var apiKey = await _secretsProvider.GetApiKeyAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            return Result<SceneDescription>.Failure("Chave da OpenAI não encontrada em secrets.local.json.");
+            return Result<SceneDescription>.Failure("Chave da OpenAI não encontrada em OPENAI_API_KEY, secrets.local.json ou secrets.local.");
         }
 
         var prompt = BuildPrompt(location);
@@ -79,10 +79,12 @@ public sealed class OpenAiSceneDescriptionService : IOpenAiSceneDescriptionServi
     private static string BuildPrompt(GeoCoordinate? location)
     {
         var locationText = location is null
-            ? "Localização indisponível."
-            : $"Localização atual: latitude {location.Latitude:F6}, longitude {location.Longitude:F6}.";
+            ? "Dados de localização indisponíveis. Informe que o endereço aproximado não foi encontrado."
+            : string.IsNullOrWhiteSpace(location.ApproximateAddress)
+                ? "Há dados de localização do dispositivo, mas o endereço aproximado não foi resolvido pela geocodificação. Não use nem mencione latitude ou longitude. Diga que o endereço aproximado não pôde ser identificado."
+                : $"Localização já traduzida a partir dos dados do dispositivo: {location.ApproximateAddress}. Use esse endereço/local aproximado de forma natural na descrição.";
 
-        return $"Descreva a cena com foco em orientação imediata, segurança e pontos úteis para uma pessoa com deficiência visual. Responda em português do Brasil. Seja objetivo. {locationText}";
+        return $"A pessoa usuária é deficiente visual. Descreva a cena em português do Brasil, de forma objetiva, com foco em orientação imediata, segurança, obstáculos, direção de movimento, pontos de referência e próximos passos práticos. Sempre considere navegação/movimentação segura, mesmo se a imagem estiver limitada. Traduza/converta o contexto de localização disponível em uma descrição natural de lugar, endereço, bairro, cidade ou ponto de referência e integre isso à descrição da imagem. Nunca apresente latitude ou longitude em forma bruta para a pessoa usuária. {locationText}";
     }
 
     private static string BuildSafeErrorMessage(System.Net.HttpStatusCode statusCode)

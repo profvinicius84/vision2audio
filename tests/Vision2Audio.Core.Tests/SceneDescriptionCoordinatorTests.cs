@@ -41,19 +41,24 @@ public sealed class SceneDescriptionCoordinatorTests
     }
 
     [Fact]
-    public async Task CaptureAndDescribeAsync_Fails_WhenLocationUnavailable()
+    public async Task CaptureAndDescribeAsync_ContinuesWithNullLocation_WhenLocationUnavailable()
     {
+        var openAi = new FakeOpenAiService();
+        var history = new InMemoryHistoryRepository();
         var coordinator = new SceneDescriptionCoordinator(
             new FakeConnectivityService(true),
             new FakeCaptureService(),
             new FailingLocationService(),
-            new FakeOpenAiService(),
-            new InMemoryHistoryRepository());
+            openAi,
+            history);
 
         var result = await coordinator.CaptureAndDescribeAsync(CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal("GPS indisponível.", result.Error);
+        Assert.True(result.IsSuccess);
+        Assert.Null(openAi.LastLocation);
+        Assert.Single(history.Entries);
+        Assert.Null(history.Entries[0].Latitude);
+        Assert.Null(history.Entries[0].Longitude);
     }
 
     private sealed class FakeConnectivityService(bool isOnline) : IConnectivityService
@@ -81,8 +86,16 @@ public sealed class SceneDescriptionCoordinatorTests
 
     private sealed class FakeOpenAiService : IOpenAiSceneDescriptionService
     {
+        public GeoCoordinate? LastLocation { get; private set; }
+
         public Task<Result<SceneDescription>> DescribeAsync(SceneCapture capture, GeoCoordinate? location, CancellationToken cancellationToken) =>
-            Task.FromResult(Result<SceneDescription>.Success(new SceneDescription("Uma pessoa em pé ao lado de uma mesa.", "test-model", DateTimeOffset.UtcNow)));
+            Task.FromResult(Describe(location));
+
+        private Result<SceneDescription> Describe(GeoCoordinate? location)
+        {
+            LastLocation = location;
+            return Result<SceneDescription>.Success(new SceneDescription("Uma pessoa em pé ao lado de uma mesa.", "test-model", DateTimeOffset.UtcNow));
+        }
     }
 
     private sealed class InMemoryHistoryRepository : IHistoryRepository

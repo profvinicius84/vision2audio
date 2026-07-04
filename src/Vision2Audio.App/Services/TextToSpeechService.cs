@@ -9,7 +9,44 @@ namespace Vision2Audio.App.Services;
 /// </summary>
 public sealed class TextToSpeechService : ITextToSpeechService
 {
+    private readonly object _gate = new();
+    private CancellationTokenSource? _activeSpeechCancellation;
+
     /// <inheritdoc />
-    public Task SpeakAsync(SceneDescription description, CancellationToken cancellationToken)
-        => TextToSpeech.Default.SpeakAsync(description.Text, cancelToken: cancellationToken);
+    public async Task SpeakAsync(SceneDescription description, CancellationToken cancellationToken)
+    {
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (_gate)
+        {
+            _activeSpeechCancellation?.Cancel();
+            _activeSpeechCancellation = linkedCancellation;
+        }
+
+        try
+        {
+            await TextToSpeech.Default.SpeakAsync(description.Text, cancelToken: linkedCancellation.Token);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_activeSpeechCancellation, linkedCancellation))
+                {
+                    _activeSpeechCancellation = null;
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public Task StopAsync()
+    {
+        lock (_gate)
+        {
+            _activeSpeechCancellation?.Cancel();
+            _activeSpeechCancellation = null;
+        }
+
+        return Task.CompletedTask;
+    }
 }

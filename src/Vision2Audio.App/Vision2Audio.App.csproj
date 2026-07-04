@@ -46,7 +46,7 @@
 
 	<ItemGroup>
 		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<MauiIcon Include="..\..\logo.jpeg" Link="Resources\AppIcon\appicon.jpeg" />
 
 		<!-- Splash Screen -->
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
@@ -67,7 +67,15 @@
 		<AndroidResource Remove="..\..\secrets.local.json" />
 		<EmbeddedResource Remove="..\..\secrets.local.json" />
 		<None Include="..\..\secrets.local.json" Condition="Exists('..\..\secrets.local.json')" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" Pack="false" Visible="false" />
-		<MauiAsset Include="..\..\secrets.local.json" LogicalName="secrets.local.json" Condition="'$(IncludeLocalSecretsInAppPackage)' == 'true' And Exists('..\..\secrets.local.json')" />
+		<None Remove="..\..\secrets.local" />
+		<Content Remove="..\..\secrets.local" />
+		<MauiAsset Remove="..\..\secrets.local" />
+		<AndroidAsset Remove="..\..\secrets.local" />
+		<AndroidResource Remove="..\..\secrets.local" />
+		<EmbeddedResource Remove="..\..\secrets.local" />
+		<None Include="..\..\secrets.local" Condition="Exists('..\..\secrets.local')" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" Pack="false" Visible="false" />
+		<MauiAsset Include="..\..\secrets.local.json" LogicalName="secrets.local.json" Condition="('$(Configuration)' == 'Debug' Or '$(IncludeLocalSecretsInAppPackage)' == 'true') And Exists('..\..\secrets.local.json')" />
+		<MauiAsset Include="..\..\secrets.local" LogicalName="secrets.local" Condition="('$(Configuration)' == 'Debug' Or '$(IncludeLocalSecretsInAppPackage)' == 'true') And Exists('..\..\secrets.local')" />
 	</ItemGroup>
 
 	<ItemGroup>

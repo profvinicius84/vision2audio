@@ -56,6 +56,6 @@ public partial class MainPage : ContentPage
 
 	private void HandleAlertRequested(object? sender, string message)
 	{
-		MainThread.BeginInvokeOnMainThread(async () => await DisplayAlertAsync("Vision 2 Audio", message, "OK"));
+		MainThread.BeginInvokeOnMainThread(async () => await DisplayAlertAsync("Aviso", message, "OK"));
 	}
 }
