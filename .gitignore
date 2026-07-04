@@ -63,3 +63,4 @@ secrets.local.json
 !*.env.example
 !secrets.local.json.example
 /AndroidUSBCamera-3.3.3.zip
+/AndroidUSBCamera-3.6.0.zip
