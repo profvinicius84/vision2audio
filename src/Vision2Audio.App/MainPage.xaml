@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+              xmlns:controls="clr-namespace:Vision2Audio.App.Controls"
+              x:Class="Vision2Audio.App.MainPage"
+              Title="Vision 2 Audio">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="20" RowSpacing="16">
+        <Label Text="Vision 2 Audio"
+               FontSize="28"
+               FontAttributes="Bold"
+               SemanticProperties.HeadingLevel="Level1" />
+
+        <Border Grid.Row="1" Padding="16" StrokeShape="RoundRectangle 16">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Prévia da câmera" FontAttributes="Bold" FontSize="18" />
+                <Picker Title="Selecionar câmera"
+                        ItemsSource="{Binding CameraChoices}"
+                        ItemDisplayBinding="{Binding DisplayName}"
+                        SelectedItem="{Binding SelectedCameraChoice, Mode=TwoWay}" />
+                <controls:CameraPreviewView HeightRequest="220"
+                                            SelectionKind="{Binding SelectedCameraKind}"
+                                            RefreshToken="{Binding PreviewRefreshToken}" />
+                <Label Text="{Binding ActiveCameraSource, StringFormat='Fonte ativa: {0}'}" FontAttributes="Bold" />
+                <Label Text="{Binding CameraPreviewStatus, StringFormat='Status da câmera: {0}'}" LineBreakMode="WordWrap" />
+                <Label Text="Fallback ativo: usando outra câmera disponível." IsVisible="{Binding IsFallbackActive}" FontSize="12" Opacity="0.8" />
+            </VerticalStackLayout>
+        </Border>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <Label Text="Status" FontAttributes="Bold" />
+            <Label Text="{Binding StatusMessage}" LineBreakMode="WordWrap" />
+            <Label Text="Última descrição" FontAttributes="Bold" Margin="0,8,0,0" />
+            <Label Text="{Binding LatestDescription}" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+
+        <HorizontalStackLayout Grid.Row="3" Spacing="12">
+            <Button Text="Capturar agora"
+                    Command="{Binding CaptureCommand}" />
+            <Button Text="Limpar histórico"
+                    Command="{Binding ClearHistoryCommand}" />
+        </HorizontalStackLayout>
+
+        <Label Grid.Row="4"
+               Text="A seleção de câmera é salva localmente e volta na próxima abertura." 
+               FontSize="12"
+               Opacity="0.8" />
+
+        <Label Grid.Row="5"
+               Text="A câmera selecionada é usada primeiro; a câmera nativa é fallback quando necessário." 
+               FontSize="12"
+               Opacity="0.8" />
+
+        <CollectionView Grid.Row="6" ItemsSource="{Binding History}" SelectionMode="None">
+            <CollectionView.Header>
+                <Label Text="Histórico local" FontAttributes="Bold" />
+            </CollectionView.Header>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="12" Margin="0,0,0,8" StrokeShape="RoundRectangle 12">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding CapturedAtUtc, StringFormat='{}{0:dd/MM/yyyy HH:mm} UTC'}" FontAttributes="Bold" />
+                            <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Label Grid.Row="7"
+               Text="Use um botão Bluetooth ou teclado para disparar a captura."
+               FontSize="12"
+               Opacity="0.8" />
+    </Grid>
+
+</ContentPage>

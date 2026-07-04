@@ -1,0 +1,133 @@
+{
+  "version": "0.1.0",
+  "mcp_policy": {
+    "default_status": "optional",
+    "configure_at_project_start": "recommended_when_known",
+    "block_only_when_task_requires_mcp": true,
+    "require_human_approval_for_new_servers": true,
+    "never_commit_credentials": true
+  },
+  "server_readiness": {
+    "repository": {
+      "status": "later_stage",
+      "owner_agent": "env-configr",
+      "needed_when": [
+        "repository operations require MCP instead of native platform tooling",
+        "agent must inspect branches, pull requests, commits or repository metadata through MCP"
+      ],
+      "recommended_specialist": "repository-specialist"
+    },
+    "project_management": {
+      "status": "later_stage",
+      "owner_agent": "env-configr",
+      "needed_when": [
+        "agent must read or update issues, work items, boards, milestones or sprints through MCP"
+      ],
+      "recommended_specialist": "project-management-specialist"
+    },
+    "database": {
+      "status": "later_stage",
+      "owner_agent": "env-configr",
+      "needed_when": [
+        "task requires live database inspection",
+        "task requires migrations against a real environment",
+        "task requires validating integration with real data"
+      ],
+      "recommended_specialist": "data-specialist",
+      "safety": [
+        "never store database credentials in repository files",
+        "prefer read-only credentials when inspection is enough",
+        "require explicit human approval before write operations"
+      ]
+    },
+    "filesystem": {
+      "status": "optional_now",
+      "owner_agent": "env-configr",
+      "needed_when": [
+        "local project file access is required through MCP",
+        "platform does not already provide repository file access"
+      ],
+      "safety": [
+        "restrict allowed directories",
+        "avoid exposing home directory or secrets folders"
+      ]
+    },
+    "browser": {
+      "status": "later_stage",
+      "owner_agent": "env-configr",
+      "needed_when": [
+        "task requires browser automation",
+        "UI validation cannot be performed through tests alone"
+      ],
+      "safety": [
+        "avoid logging into sensitive accounts unless explicitly approved",
+        "avoid storing session tokens"
+      ]
+    },
+    "deployment": {
+      "status": "later_stage",
+      "owner_agent": "env-configr",
+      "needed_when": [
+        "task requires deployment automation",
+        "task requires release validation",
+        "task requires environment inspection through MCP"
+      ],
+      "recommended_specialist": "devops-specialist",
+      "safety": [
+        "never store deployment credentials in repository files",
+        "require explicit human approval for production actions"
+      ]
+    }
+  },
+  "servers": [
+    {
+      "name": "example-filesystem",
+      "type": "filesystem",
+      "enabled": false,
+      "command": "replace-with-platform-specific-command",
+      "args": ["replace-with-allowed-directory"],
+      "secrets_required": false,
+      "notes": ["Example only. Adapt to the selected platform."]
+    },
+    {
+      "name": "example-github",
+      "type": "repository",
+      "enabled": false,
+      "command": "replace-with-platform-specific-command",
+      "args": [],
+      "secrets_required": true,
+      "secret_names": ["GITHUB_TOKEN"],
+      "notes": [
+        "Prefer the platform's native GitHub integration when available.",
+        "Do not put token values in this file."
+      ]
+    },
+    {
+      "name": "example-database",
+      "type": "database",
+      "enabled": false,
+      "command": "replace-with-platform-specific-command",
+      "args": [],
+      "secrets_required": true,
+      "secret_names": ["DATABASE_URL"],
+      "notes": [
+        "Use only when a task requires real database access.",
+        "Prefer read-only access for analysis tasks."
+      ]
+    }
+  ],
+  "blocking_policy": {
+    "missing_mcp_for_task": {
+      "action": "block_task",
+      "instruction": "Tell the human which MCP server is required, why it is required, and ask Env Configr to configure it."
+    },
+    "mcp_not_needed_yet": {
+      "action": "do_not_block",
+      "instruction": "Record as deferred. Do not require MCP setup during early project setup if no current task needs it."
+    },
+    "credentials_missing": {
+      "action": "block_sensitive_operation",
+      "instruction": "Ask the human to provide credentials through the secure mechanism supported by the selected platform."
+    }
+  }
+}

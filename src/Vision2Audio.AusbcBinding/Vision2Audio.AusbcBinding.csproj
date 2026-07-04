@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsBindingProject>true</IsBindingProject>
+    <RootNamespace>Vision2Audio.AusbcBinding</RootNamespace>
+    <AndroidClassParser>class-parse</AndroidClassParser>
+    <AndroidCodegenTarget>XAJavaInterop1</AndroidCodegenTarget>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libausbc-release.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libausbc-release.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libuvc-3.2.9.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libuvc-3.2.9.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('..\..\external\ausbc\libuvc-3.2.9.aar') And Exists('..\..\external\ausbc\libuvc-release.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libuvc-release.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libuvc-3.2.9.aar')">
+    <AndroidLibrary Remove="..\..\external\ausbc\libuvc-release.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libnative-3.2.9.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libnative-3.2.9.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('..\..\external\ausbc\libnative-3.2.9.aar') And Exists('..\..\external\ausbc\libnative-release.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libnative-release.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libnative-3.2.9.aar')">
+    <AndroidLibrary Remove="..\..\external\ausbc\libnative-release.aar" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libutils-3.2.9.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libutils-3.2.9.aar" Bind="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\libuvccommon-3.2.9.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\libuvccommon-3.2.9.aar" Bind="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\..\external\ausbc\xlog-1.11.0.aar')">
+    <AndroidLibrary Include="..\..\external\ausbc\xlog-1.11.0.aar" Bind="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TransformFile Include="Transforms\Metadata.xml" />
+  </ItemGroup>
+
+  <Target Name="RemoveLegacyAarFallbacksWhenVersionedAarsExist" BeforeTargets="Build">
+    <ItemGroup Condition="Exists('..\..\external\ausbc\libnative-3.2.9.aar')">
+      <_LegacyAarFallback Include="$(OutputPath)libnative-release.aar" />
+    </ItemGroup>
+    <ItemGroup Condition="Exists('..\..\external\ausbc\libuvc-3.2.9.aar')">
+      <_LegacyAarFallback Include="$(OutputPath)libuvc-release.aar" />
+    </ItemGroup>
+    <Delete Files="@(_LegacyAarFallback)" TreatErrorsAsWarnings="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Vision2Audio.AusbcBinding/Vision2Audio.AusbcBinding.csproj" />
+    <Project Path="src/Vision2Audio.App/Vision2Audio.App.csproj" />
+    <Project Path="src/Vision2Audio.Core/Vision2Audio.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,10 @@
+<metadata>
+  <!--
+    Xlog is an AUSBC Java dependency packaged into the app, not a managed API used by C#.
+    Release binding generation can include its generic formatter API and produce CS0535
+    because the generated non-generic formatter interfaces require Format(Object?) while
+    concrete formatter classes expose only erased typed overloads. Keep the AAR packaged
+    via AndroidLibrary Bind="false", but remove the managed Xlog API surface.
+  -->
+  <remove-node path="/api/package[starts-with(@name, 'com.elvishew.xlog')]" />
+</metadata>

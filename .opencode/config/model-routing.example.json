@@ -1,0 +1,112 @@
+{
+  "version": "0.1.0",
+  "communication": {
+    "inter_agent_language": "English",
+    "human_language": "adapt-to-human",
+    "artifact_language": "adapt-to-human-or-project-context",
+    "inter_agent_compression_skill": "caveman",
+    "rules": [
+      "Inter-agent communication should use English by default.",
+      "Specialized agents communicating with models should use the caveman skill by default.",
+      "Human interaction must adapt to the human's language.",
+      "Human-facing artifacts must follow the human's language or project context.",
+      "Do not use caveman compression with humans unless explicitly requested."
+    ]
+  },
+  "model_profiles": {
+    "economical": {
+      "description": "Low-cost model profile for simple, low-risk and repetitive tasks.",
+      "model": "replace-with-your-economical-model",
+      "temperature": 0.2,
+      "notes": [
+        "Use for simple documentation edits, formatting and low-risk context maintenance."
+      ]
+    },
+    "fast": {
+      "description": "Fast-response profile for routing, classification and simple coordination.",
+      "model": "replace-with-your-fast-model",
+      "temperature": 0.2,
+      "notes": [
+        "Use for routing decisions after the required context is already clear."
+      ]
+    },
+    "standard": {
+      "description": "Balanced model profile for common planning, writing and coordination tasks.",
+      "model": "replace-with-your-standard-model",
+      "temperature": 0.2,
+      "notes": [
+        "Use when the task needs reasoning but is not high-risk."
+      ]
+    },
+    "reasoning": {
+      "description": "Stronger reasoning profile for planning, architecture, dependencies and complex decisions.",
+      "model": "replace-with-your-reasoning-model",
+      "temperature": 0.1,
+      "notes": [
+        "Use for specs, wave/task planning, architecture and ambiguous technical work."
+      ]
+    },
+    "high_assurance": {
+      "description": "Highest-accuracy profile for security, acceptance, final review and high-risk decisions.",
+      "model": "replace-with-your-high-assurance-model",
+      "temperature": 0.0,
+      "notes": [
+        "Use when mistakes are expensive or difficult to detect."
+      ]
+    }
+  },
+  "agent_model_preferences": {
+    "product-owner": { "default_profile": "reasoning", "fallback_profile": "standard", "rationale": "Product and project setup decisions affect downstream planning." },
+    "env-configr": { "default_profile": "reasoning", "fallback_profile": "standard", "rationale": "Environment and platform setup affects agent recruitment, skills, model routing and communication rules." },
+    "tech-lead": { "default_profile": "reasoning", "fallback_profile": "high_assurance", "rationale": "Planning requires dependency reasoning and scope control." },
+    "orchestrator": { "default_profile": "standard", "fallback_profile": "reasoning", "rationale": "Coordination usually needs balanced reasoning; escalate when scope or risk is unclear." },
+    "spec-writer": { "default_profile": "reasoning", "fallback_profile": "standard", "rationale": "Specs must preserve intent and avoid scope expansion." },
+    "context-maintainer": { "default_profile": "economical", "fallback_profile": "standard", "rationale": "Most context updates are structured, but ambiguity may require escalation." },
+    "agent-recruiter": { "default_profile": "reasoning", "fallback_profile": "standard", "rationale": "Recruiting agents requires stack, environment and responsibility analysis." },
+    "skill-builder": { "default_profile": "reasoning", "fallback_profile": "standard", "rationale": "Skill creation requires research synthesis and safety review." },
+    "architecture-specialist": { "default_profile": "reasoning", "fallback_profile": "high_assurance", "rationale": "Architecture mistakes are expensive and affect many tasks." },
+    "ux-specialist": { "default_profile": "standard", "fallback_profile": "reasoning", "rationale": "UX review is usually balanced, with escalation for complex flows." },
+    "review-specialist": { "default_profile": "high_assurance", "fallback_profile": "reasoning", "rationale": "Final review should optimize correctness over cost." },
+    "testing-specialist": { "default_profile": "reasoning", "fallback_profile": "standard", "rationale": "Test planning requires coverage and risk reasoning." },
+    "acceptance-specialist": { "default_profile": "high_assurance", "fallback_profile": "reasoning", "rationale": "Acceptance validates whether the delivered result is actually ready." },
+    "cybersecurity-specialist": { "default_profile": "high_assurance", "fallback_profile": "reasoning", "rationale": "Security review should not optimize primarily for cost." },
+    "docs-maintainer": { "default_profile": "economical", "fallback_profile": "standard", "rationale": "Documentation maintenance is often low risk unless it changes behavior or policy." }
+  },
+  "blueprint_model_preferences": {
+    "stack-specialist": { "default_profile": "standard", "escalation_profile": "reasoning" },
+    "frontend-specialist": { "default_profile": "standard", "escalation_profile": "reasoning" },
+    "backend-specialist": { "default_profile": "standard", "escalation_profile": "reasoning" },
+    "api-specialist": { "default_profile": "reasoning", "escalation_profile": "high_assurance" },
+    "data-specialist": { "default_profile": "reasoning", "escalation_profile": "high_assurance" },
+    "devops-specialist": { "default_profile": "reasoning", "escalation_profile": "high_assurance" },
+    "repository-specialist": { "default_profile": "standard", "escalation_profile": "reasoning" },
+    "project-management-specialist": { "default_profile": "standard", "escalation_profile": "reasoning" }
+  },
+  "routing_rules": {
+    "escalate_to_high_assurance_when": [
+      "security impact exists",
+      "authorization or permissions are affected",
+      "data loss or migration risk exists",
+      "release or production behavior is affected",
+      "public API compatibility is at risk",
+      "human explicitly requests high confidence"
+    ],
+    "prefer_economical_when": [
+      "task is documentation-only and low risk",
+      "task is formatting or summarization of already-approved content",
+      "no product, architecture, security, data or release decision is involved"
+    ],
+    "require_human_confirmation_when": [
+      "selected model is unavailable in the user's subscription",
+      "cost-sensitive work requires a stronger profile",
+      "task risk suggests escalation but no high-assurance model is configured",
+      "platform-specific model names are unknown"
+    ]
+  },
+  "platform_overrides": {
+    "claude": { "enabled": true, "notes": ["Fill model names according to the Claude subscription available to the project."] },
+    "opencode": { "enabled": true, "notes": ["Map profiles to provider/model IDs supported by the OpenCode configuration."] },
+    "github_copilot": { "enabled": true, "notes": ["GitHub Copilot may not expose per-agent model routing in every plan. Keep this file as guidance when direct routing is unavailable."] },
+    "codex": { "enabled": true, "notes": ["Fill model names according to the Codex/OpenAI environment available to the project."] }
+  }
+}

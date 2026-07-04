@@ -1,0 +1,183 @@
+{
+  "version": "0.1.0",
+  "readiness_levels": {
+    "mandatory_now": {
+      "description": "Required before the current stage can proceed."
+    },
+    "optional_now": {
+      "description": "Useful now, but not required to proceed."
+    },
+    "later_stage": {
+      "description": "Not required now; becomes mandatory only when a later stage or task needs it."
+    },
+    "not_applicable": {
+      "description": "Not required for this project or task."
+    }
+  },
+  "definitions": {
+    "product_goals": {
+      "owner_agent": "product-owner",
+      "initial_project_setup": "mandatory_now",
+      "spec_writing": "mandatory_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Always needed to avoid building without product purpose."
+    },
+    "human_language": {
+      "owner_agent": "product-owner",
+      "initial_project_setup": "mandatory_now",
+      "spec_writing": "mandatory_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required for human interaction and human-facing artifacts."
+    },
+    "artifact_language": {
+      "owner_agent": "product-owner",
+      "initial_project_setup": "mandatory_now",
+      "spec_writing": "mandatory_now",
+      "wave_planning": "optional_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required when generating specs, docs, user-facing text or reports."
+    },
+    "ai_platform": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "mandatory_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required before configuring agents for a specific platform."
+    },
+    "model_routing": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required before assigning agents to models or optimizing cost/accuracy."
+    },
+    "mcp_servers": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "optional_now",
+      "task_execution": "later_stage",
+      "needed_when": "Required only when an agent must access an external tool or context through MCP."
+    },
+    "repository_platform": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "mandatory_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required before repository operations, branches, PRs or commits."
+    },
+    "task_management_platform": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "optional_now",
+      "task_execution": "later_stage",
+      "needed_when": "Required when milestones, work items, tasks or project boards must be synchronized."
+    },
+    "stack": {
+      "owner_agent": "tech-lead",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required before technical planning and agent recruitment."
+    },
+    "specialist_agents": {
+      "owner_agent": "agent-recruiter",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required before implementation planning when generic agents are not enough."
+    },
+    "required_skills": {
+      "owner_agent": "skill-builder",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required before assigning work that depends on specialized skills."
+    },
+    "database_credentials": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "later_stage",
+      "spec_writing": "optional_now",
+      "wave_planning": "later_stage",
+      "task_execution": "later_stage",
+      "needed_when": "Required only when a task must connect to a real database, run migrations, inspect data, deploy, or validate integration.",
+      "safety": "Never store credentials in repository files."
+    },
+    "database_schema_access": {
+      "owner_agent": "data-specialist",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "later_stage",
+      "task_execution": "later_stage",
+      "needed_when": "Required when planning or executing schema changes, migrations, queries or data validation."
+    },
+    "deployment_environment": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "later_stage",
+      "spec_writing": "optional_now",
+      "wave_planning": "later_stage",
+      "task_execution": "later_stage",
+      "needed_when": "Required when deployment, release, environment validation, secrets, CI/CD or runtime configuration is requested."
+    },
+    "deployment_credentials": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "later_stage",
+      "spec_writing": "not_applicable",
+      "wave_planning": "later_stage",
+      "task_execution": "later_stage",
+      "needed_when": "Required only for real deployment or deployment validation.",
+      "safety": "Never store credentials in repository files."
+    },
+    "ci_cd_platform": {
+      "owner_agent": "env-configr",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "optional_now",
+      "wave_planning": "later_stage",
+      "task_execution": "later_stage",
+      "needed_when": "Required when build automation, pipelines, release or deployment tasks are requested."
+    },
+    "security_constraints": {
+      "owner_agent": "product-owner",
+      "initial_project_setup": "mandatory_now",
+      "spec_writing": "mandatory_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "At least high-level constraints are required from the start; detailed secrets are not."
+    },
+    "compliance_constraints": {
+      "owner_agent": "product-owner",
+      "initial_project_setup": "optional_now",
+      "spec_writing": "mandatory_now",
+      "wave_planning": "mandatory_now",
+      "task_execution": "mandatory_now",
+      "needed_when": "Required when the project is regulated or handles sensitive data."
+    }
+  },
+  "blocking_policy": {
+    "if_missing_mandatory_now": {
+      "action": "block_current_stage",
+      "instruction": "Tell the human which definition is missing and which agent should handle it."
+    },
+    "if_missing_later_stage": {
+      "action": "do_not_block_now",
+      "instruction": "Record as deferred and remind the human when a task requires it."
+    },
+    "if_task_requires_deferred_item": {
+      "action": "block_task",
+      "instruction": "Route the human to the owner agent before execution continues."
+    },
+    "if_credentials_are_required": {
+      "action": "request_secure_input",
+      "instruction": "Ask the human to provide credentials through the secure mechanism supported by the selected platform. Never commit them."
+    }
+  }
+}
