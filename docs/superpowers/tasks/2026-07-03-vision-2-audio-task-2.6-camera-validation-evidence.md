@@ -233,6 +233,37 @@ Wave 2 has concrete evidence for pass/fail/deferred gates, and current context a
   - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed after retry; existing AUSBC Android 16 page-size warnings remain.
   - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
 
+## Follow-up popup audio/history UX
+
+- Human priorities: add a visible button to stop audio, hide inline history to give more space to the image, show AI description in a popup with OK, close the popup automatically when audio ends, and show history in a popup with close and clear buttons.
+- Stop audio: main screen now shows `Parar áudio` only while audio is playing. Pressing it cancels TTS, closes the description popup, clears the frozen image, resumes live preview, and returns the app to ready state.
+- Description popup: AI description opens in an in-app popup overlay with `OK`. Pressing OK stops audio if still playing and closes the popup. Natural TTS completion closes the popup automatically, clears the still image, and resumes live preview.
+- History popup: inline history list was removed from the main screen; a `Histórico` button opens a popup with `Fechar` and `Limpar`. Clearing uses existing history behavior and refreshes the popup state.
+- Layout: main image/preview area has more space because inline history is hidden.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed; one transient file-copy retry warning occurred, existing AUSBC Android 16 page-size warnings remain.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
+- Remaining validation: manual Android test for description popup OK behavior, automatic popup close after audio, stop-audio button, Volume Up during audio, and history popup close/clear behavior.
+
+## Follow-up splash logo
+
+- Human request: show the project logo on the app opening/splash screen instead of the default `.NET` splash.
+- Fix applied: MAUI splash screen now uses the existing root `logo.jpeg`, linked as `Resources\Splash\splash.jpeg`, with black splash background. Existing app icon configuration from `logo.jpeg` is preserved.
+- Validation:
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing AUSBC Android 16 page-size warnings.
+  - APK resource inspection confirmed generated splash resources including `res/drawable/maui_splash.xml`, `res/drawable/maui_splash_image.xml`, and density-specific `splash.png` files.
+  - Debug build was blocked by Visual Studio Remote Debugger locking `Vision2Audio.App.dll` in this environment.
+- Remaining validation: cold-launch app on Android and confirm splash shows project logo, not the `.NET` logo.
+
+## Follow-up splash conflict fix
+
+- Human report: splash still showed the incorrect `.NET` image.
+- Root cause: the default MAUI splash file `src/Vision2Audio.App/Resources/Splash/splash.svg` still existed and contained the `.NET` logo; MAUI default item inclusion could still process it as a competing splash resource.
+- Fix applied: the project file now explicitly excludes `Resources\Splash\splash.svg` from `MauiSplashScreen` processing while keeping `logo.jpeg` as the configured splash source. Default template `dotnet_bot.png` is also excluded from packaged MAUI images.
+- Validation: Release APK publish passed. APK inspection showed logo-based splash outputs (`maui_splash.xml`, `maui_splash_image.xml`, density-specific `splash.jpeg`) and no `dotnet_bot` resource in the final APK inspection.
+- Remaining validation: uninstall the existing app, install the new APK, and cold-launch to avoid Android resource cache effects.
+
 ## Follow-up resolution blocker fix
 
 - Human report: the physical OTG/UVC camera resolution is 640x480 and Android 11 validation hit a resolution-related error.

@@ -5,73 +5,121 @@
              x:Class="Vision2Audio.App.MainPage"
              Title="">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="16">
-            <Border Padding="16" StrokeShape="RoundRectangle 16">
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="16">
+                <Border Padding="16" StrokeShape="RoundRectangle 16">
+                    <VerticalStackLayout Spacing="8">
+                        <Picker Title="Selecionar câmera"
+                                ItemsSource="{Binding CameraChoices}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding SelectedCameraChoice, Mode=TwoWay}" />
+
+                        <Grid HeightRequest="380">
+                            <controls:CameraPreviewView SelectionKind="{Binding SelectedCameraKind}"
+                                                        RefreshToken="{Binding PreviewRefreshToken}"
+                                                        IsPaused="{Binding IsPreviewPaused}" />
+                            <Image Source="{Binding CapturedImageSource}"
+                                   IsVisible="{Binding IsCapturedImageVisible}"
+                                   Aspect="AspectFill"
+                                   BackgroundColor="Black" />
+                        </Grid>
+
+                        <Label Text="Fallback ativo: usando outra câmera disponível."
+                               IsVisible="{Binding IsFallbackActive}"
+                               FontSize="12"
+                               Opacity="0.8" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <VerticalStackLayout Spacing="8">
-                    <Picker Title="Selecionar câmera"
-                            ItemsSource="{Binding CameraChoices}"
-                            ItemDisplayBinding="{Binding DisplayName}"
-                            SelectedItem="{Binding SelectedCameraChoice, Mode=TwoWay}" />
+                    <Label Text="Status" FontAttributes="Bold" />
+                    <Label Text="{Binding StatusMessage}" LineBreakMode="WordWrap" />
+                    <HorizontalStackLayout Spacing="8" IsVisible="{Binding IsRequestingDescription}">
+                        <ActivityIndicator IsRunning="{Binding IsRequestingDescription}"
+                                           IsVisible="{Binding IsRequestingDescription}" />
+                        <Label Text="Analisando com IA..." VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
 
-                    <Grid HeightRequest="220">
-                        <controls:CameraPreviewView SelectionKind="{Binding SelectedCameraKind}"
-                                                    RefreshToken="{Binding PreviewRefreshToken}"
-                                                    IsPaused="{Binding IsPreviewPaused}" />
-                        <Image Source="{Binding CapturedImageSource}"
-                               IsVisible="{Binding IsCapturedImageVisible}"
-                               Aspect="AspectFill"
-                               BackgroundColor="Black" />
-                    </Grid>
+                <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center" JustifyContent="Start">
+                    <Button Text="Capturar agora"
+                            Margin="0,0,12,8"
+                            Command="{Binding CaptureCommand}" />
+                    <Button Text="Parar áudio"
+                            Margin="0,0,12,8"
+                            IsVisible="{Binding IsSpeaking}"
+                            IsEnabled="{Binding IsSpeaking}"
+                            Command="{Binding StopAudioCommand}" />
+                    <Button Text="Histórico"
+                            Margin="0,0,12,8"
+                            Command="{Binding OpenHistoryCommand}" />
+                </FlexLayout>
 
-                    <Label Text="Fallback ativo: usando outra câmera disponível."
-                           IsVisible="{Binding IsFallbackActive}"
-                           FontSize="12"
-                           Opacity="0.8" />
+                <Label Text="Use o botão de volume, Bluetooth ou teclado para capturar."
+                       FontSize="12"
+                       Opacity="0.8" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid IsVisible="{Binding IsDescriptionPopupVisible}"
+              BackgroundColor="#99000000"
+              Padding="24">
+            <Border Padding="20"
+                    StrokeShape="RoundRectangle 18"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#1F1F1F}"
+                    VerticalOptions="Center">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Descrição"
+                           FontAttributes="Bold"
+                           FontSize="20" />
+                    <ScrollView MaximumHeightRequest="420">
+                        <Label Text="{Binding LatestDescription}"
+                               LineBreakMode="WordWrap" />
+                    </ScrollView>
+                    <Button Text="OK"
+                            Command="{Binding DismissDescriptionCommand}" />
                 </VerticalStackLayout>
             </Border>
+        </Grid>
 
-            <VerticalStackLayout Spacing="8">
-                <Label Text="Status" FontAttributes="Bold" />
-                <Label Text="{Binding StatusMessage}" LineBreakMode="WordWrap" />
-                <HorizontalStackLayout Spacing="8" IsVisible="{Binding IsRequestingDescription}">
-                    <ActivityIndicator IsRunning="{Binding IsRequestingDescription}"
-                                       IsVisible="{Binding IsRequestingDescription}" />
-                    <Label Text="Analisando com IA..." VerticalOptions="Center" />
-                </HorizontalStackLayout>
-                <Label Text="Última descrição" FontAttributes="Bold" Margin="0,8,0,0" />
-                <Label Text="{Binding LatestDescription}" LineBreakMode="WordWrap" />
-            </VerticalStackLayout>
-
-            <HorizontalStackLayout Spacing="12">
-                <Button Text="Capturar agora"
-                        Command="{Binding CaptureCommand}" />
-                <Button Text="Limpar histórico"
-                        Command="{Binding ClearHistoryCommand}" />
-            </HorizontalStackLayout>
-
-            <CollectionView ItemsSource="{Binding History}"
-                            SelectionMode="None"
-                            HeightRequest="360">
-                <CollectionView.Header>
-                    <Label Text="Histórico local" FontAttributes="Bold" />
-                </CollectionView.Header>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Border Padding="12" Margin="0,0,0,8" StrokeShape="RoundRectangle 12">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding CapturedAtUtc, StringFormat='{}{0:dd/MM/yyyy HH:mm} UTC'}" FontAttributes="Bold" />
-                                <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
-                            </VerticalStackLayout>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <Label Text="Use o botão de volume, Bluetooth ou teclado para capturar."
-                   FontSize="12"
-                   Opacity="0.8" />
-        </VerticalStackLayout>
-    </ScrollView>
+        <Grid IsVisible="{Binding IsHistoryPopupVisible}"
+              BackgroundColor="#99000000"
+              Padding="24">
+            <Border Padding="20"
+                    StrokeShape="RoundRectangle 18"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#1F1F1F}"
+                    VerticalOptions="Center">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Histórico local"
+                           FontAttributes="Bold"
+                           FontSize="20" />
+                    <CollectionView ItemsSource="{Binding History}"
+                                    SelectionMode="None"
+                                    HeightRequest="420">
+                        <CollectionView.EmptyView>
+                            <Label Text="Nenhuma descrição salva ainda." />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="12" Margin="0,0,0,8" StrokeShape="RoundRectangle 12">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Text="{Binding CapturedAtUtc, StringFormat='{}{0:dd/MM/yyyy HH:mm} UTC'}" FontAttributes="Bold" />
+                                        <Label Text="{Binding Description}" LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <HorizontalStackLayout Spacing="12">
+                        <Button Text="Fechar"
+                                Command="{Binding CloseHistoryCommand}" />
+                        <Button Text="Limpar"
+                                Command="{Binding ClearHistoryCommand}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
 
 </ContentPage>

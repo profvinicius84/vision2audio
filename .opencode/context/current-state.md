@@ -24,6 +24,9 @@ Record the current known state of the project here.
 - App polish/accessibility follow-up implemented: `logo.jpeg` is configured as the app icon, AI loading indicator appears only during the OpenAI request, live preview resumes after audio finishes, trigger during audio interrupts TTS and returns the app to ready state, and the OpenAI prompt always includes location context plus visually-impaired navigation guidance.
 - Location prompt correction implemented: GPS is reverse-geocoded to a human-readable approximate address/place before building the OpenAI prompt; raw latitude/longitude should not be exposed in user-facing descriptions.
 - Prompt wording now explicitly asks the AI to translate/convert available location context into natural address/place language integrated with the image description, without speaking raw latitude/longitude.
+- Popup audio/history UX implemented: description appears in a popup with OK, popup closes when audio finishes, a visible stop-audio button cancels TTS and resumes preview, and history moved from inline screen content to a popup with close/clear actions.
+- Splash screen now uses the project `logo.jpeg` instead of the default `.NET` splash.
+- Splash conflict fixed: the old default `Resources/Splash/splash.svg` containing the `.NET` logo is explicitly excluded, leaving `logo.jpeg` as the only splash source.
 - Repository platform is GitHub; task-management platform remains pending decision.
 - OpenAI API key must be supplied in local `secrets.local.json` before runtime calls can succeed.
 - Native Android camera is the explicit fallback capture path in the current implementation.

@@ -22,11 +22,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly TriggerHub _triggerHub;
     private readonly AsyncRelayCommand _captureCommand;
     private readonly AsyncRelayCommand _clearHistoryCommand;
+    private readonly AsyncRelayCommand _stopAudioCommand;
+    private readonly AsyncRelayCommand _openHistoryCommand;
+    private readonly AsyncRelayCommand _closeHistoryCommand;
+    private readonly AsyncRelayCommand _dismissDescriptionCommand;
     private readonly SemaphoreSlim _captureGate = new(1, 1);
     private bool _isSynchronizingCameraSelection;
     private bool _isBusy;
     private bool _isRequestingDescription;
     private bool _isSpeaking;
+    private bool _isDescriptionPopupVisible;
+    private bool _isHistoryPopupVisible;
     private string _statusMessage = "Pronto para capturar.";
     private string _latestDescription = "Nenhuma descrição ainda.";
     private ImageSource? _capturedImageSource;
@@ -53,10 +59,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _triggerHub = triggerHub;
         _captureCommand = new AsyncRelayCommand(CaptureAsync, () => !IsBusy);
         _clearHistoryCommand = new AsyncRelayCommand(ClearHistoryAsync, () => !IsBusy);
+        _stopAudioCommand = new AsyncRelayCommand(StopAudioFromUiAsync, () => IsSpeaking || IsDescriptionPopupVisible);
+        _openHistoryCommand = new AsyncRelayCommand(OpenHistoryAsync, () => !IsBusy);
+        _closeHistoryCommand = new AsyncRelayCommand(CloseHistoryAsync);
+        _dismissDescriptionCommand = new AsyncRelayCommand(DismissDescriptionAsync);
         _triggerHub.Triggered += HandleTriggered;
         _coordinator.DescriptionRequestStateChanged += HandleDescriptionRequestStateChanged;
         CaptureCommand = _captureCommand;
         ClearHistoryCommand = _clearHistoryCommand;
+        StopAudioCommand = _stopAudioCommand;
+        OpenHistoryCommand = _openHistoryCommand;
+        CloseHistoryCommand = _closeHistoryCommand;
+        DismissDescriptionCommand = _dismissDescriptionCommand;
         CameraChoices =
         [
             new CameraSelectionChoice(CameraSelectionKind.Front, "Câmera frontal"),
@@ -73,6 +87,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Clears all local history.</summary>
     public ICommand ClearHistoryCommand { get; }
+
+    /// <summary>Stops active speech and closes the description popup.</summary>
+    public ICommand StopAudioCommand { get; }
+
+    /// <summary>Shows the local history popup.</summary>
+    public ICommand OpenHistoryCommand { get; }
+
+    /// <summary>Closes the local history popup.</summary>
+    public ICommand CloseHistoryCommand { get; }
+
+    /// <summary>Dismisses the description popup.</summary>
+    public ICommand DismissDescriptionCommand { get; }
 
     /// <summary>Camera options shown in the selector.</summary>
     public IReadOnlyList<CameraSelectionChoice> CameraChoices { get; }
@@ -92,6 +118,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             _captureCommand.RaiseCanExecuteChanged();
             _clearHistoryCommand.RaiseCanExecuteChanged();
+            _openHistoryCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -123,6 +150,40 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
 
             _isSpeaking = value;
+            OnPropertyChanged();
+            _stopAudioCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>Shows whether the description dialog is visible.</summary>
+    public bool IsDescriptionPopupVisible
+    {
+        get => _isDescriptionPopupVisible;
+        private set
+        {
+            if (_isDescriptionPopupVisible == value)
+            {
+                return;
+            }
+
+            _isDescriptionPopupVisible = value;
+            OnPropertyChanged();
+            _stopAudioCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>Shows whether the history dialog is visible.</summary>
+    public bool IsHistoryPopupVisible
+    {
+        get => _isHistoryPopupVisible;
+        private set
+        {
+            if (_isHistoryPopupVisible == value)
+            {
+                return;
+            }
+
+            _isHistoryPopupVisible = value;
             OnPropertyChanged();
         }
     }
@@ -339,6 +400,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             LatestDescription = result.Value.Text;
             StatusMessage = "Descrição pronta.";
+            IsDescriptionPopupVisible = true;
             _ = SpeakAndResumePreviewAsync(result.Value);
             await RefreshHistoryAsync(CancellationToken.None);
         }
@@ -392,6 +454,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _captureCommand.Execute(null);
     }
 
+    private async Task StopAudioFromUiAsync()
+        => await StopSpeechAndResumePreviewAsync("Áudio interrompido. Pronto para nova captura.");
+
+    private async Task DismissDescriptionAsync()
+        => await StopSpeechAndResumePreviewAsync("Pronto para capturar.");
+
+    private async Task OpenHistoryAsync()
+    {
+        await RefreshHistoryAsync(CancellationToken.None);
+        IsHistoryPopupVisible = true;
+    }
+
+    private Task CloseHistoryAsync()
+    {
+        IsHistoryPopupVisible = false;
+        return Task.CompletedTask;
+    }
+
     private void HandleDescriptionRequestStateChanged(object? sender, bool isActive)
     {
         IsRequestingDescription = isActive;
@@ -422,6 +502,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             {
                 _speechCancellationTokenSource = null;
                 IsSpeaking = false;
+                IsDescriptionPopupVisible = false;
                 ClearCapturedImage();
                 PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
                 OnPropertyChanged(nameof(PreviewRefreshToken));
@@ -432,6 +513,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private async Task StopSpeechAndResumePreviewAsync(string statusMessage)
     {
         await StopSpeechOnlyAsync();
+        IsDescriptionPopupVisible = false;
         ClearCapturedImage();
         PreviewRefreshToken = DateTimeOffset.UtcNow.UtcTicks;
         OnPropertyChanged(nameof(PreviewRefreshToken));
