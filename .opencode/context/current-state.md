@@ -27,6 +27,8 @@ Record the current known state of the project here.
 - Popup audio/history UX implemented: description appears in a popup with OK, popup closes when audio finishes, a visible stop-audio button cancels TTS and resumes preview, and history moved from inline screen content to a popup with close/clear actions.
 - Splash screen now uses the project `logo.jpeg` instead of the default `.NET` splash.
 - Splash conflict fixed: the old default `Resources/Splash/splash.svg` containing the `.NET` logo is explicitly excluded, leaving `logo.jpeg` as the only splash source.
+- OTG 3.6.0 evaluation completed: `AndroidUSBCamera-3.6.0.zip` did not include a new `libausbc` AAR, so full migration is blocked; source analysis identified the `CaptureImage` timeout cause and raw preview/capture frame flags were enabled in `CameraRequest`.
+- OTG storage-path follow-up implemented: AUSBC capture now writes to a probed app-private external/cache path without requesting broad storage permission; diagnostics identify storage probe/path/callback failures without logging full paths.
 - Repository platform is GitHub; task-management platform remains pending decision.
 - OpenAI API key must be supplied in local `secrets.local.json` before runtime calls can succeed.
 - Native Android camera is the explicit fallback capture path in the current implementation.

@@ -261,3 +261,49 @@ Validation after the fix:
 - APK secret asset inspection found no `secrets.local.json` or secret-like asset names.
 
 Validation status in this environment: the missing `USBMonitor` class packaging blocker is resolved. Android 11 OTG/UVC runtime validation on physical hardware remains required before acceptance.
+
+## AndroidUSBCamera 3.6.0 update evaluation
+
+`AndroidUSBCamera-3.6.0.zip` in the project root was inspected for a USB camera library update.
+
+Findings:
+
+- The zip contains source for `com.jiangdg.ausbc.*`, including `CameraUVC`, `ICaptureCallBack`, `CameraRequest`, `AspectRatioTextureView`, and `com.jiangdg.usb.USBMonitor`.
+- It contains prebuilt dependency AARs only for `libnative/aar/libnative-3.2.9.aar` and `libuvc/aar/libuvc-3.2.9.aar`.
+- It does not contain a prebuilt `libausbc-release.aar`, which is the primary AAR consumed by the current binding for `CameraUVC` and the generated AUSBC API surface.
+- The packaged `libnative-3.2.9.aar` and `libuvc-3.2.9.aar` have the same byte length and SHA-256 hashes as the already-present files in `external/ausbc/`, so copying them would not change runtime artifacts.
+
+Migration decision:
+
+- Full migration to 3.6.0 is blocked until a matching `libausbc` AAR is built or supplied.
+- The binding remains on the current compatible `libausbc-release.aar` plus the `3.2.9` dependency AARs; no duplicate old/new AAR set was introduced.
+
+Capture timeout root-cause update from 3.6.0 source:
+
+- `CameraUVC.captureImageInternal(savePath, callback)` waits for `mNV21DataQueue.pollFirst(...)` and reports `Times out` if no frame data arrives.
+- `mNV21DataQueue` is filled from AUSBC's `IFrameCallback`.
+- In OpenGL render mode, `CameraUVC.openCameraInternal(...)` registers that frame callback only when `CameraRequest.isRawPreviewData` or `CameraRequest.isCaptureRawImage` is true.
+- The app previously used OpenGL render mode but set both flags to false, so still capture could time out even when preview was open.
+
+Fix applied:
+
+- `UsbCameraService.CreateSessionRequest(...)` now sets both `SetRawPreviewData(true)` and `SetCaptureRawImage(true)` for OTG sessions, while preserving OpenGL render mode and same-source OTG capture behavior.
+- OTG active capture still fails explicitly if AUSBC capture fails; it does not silently fall back to native camera.
+
+## Android 11 OTG/UVC storage permission report
+
+After raw preview/capture flags were enabled, human validation reported an AUSBC/storage permission style failure during OTG capture.
+
+Source inspection result:
+
+- `CameraUVC.captureImageInternal(savePath, callback)` does not call `hasStoragePermission()`; it writes the supplied `savePath` through `MediaUtils.saveYuv2Jpeg(...)`.
+- `MediaUtils.saveYuv2Jpeg(...)` uses `FileOutputStream(File(path))` and returns false on `IOException`.
+- AUSBC default directories use `ctx.getExternalFilesDir(Environment.DIRECTORY_DCIM)/Camera`, which is app-private external storage and should not require broad storage permission on Android 11.
+- Legacy `Camera1Strategy`, `Camera2Strategy`, and `CameraUvcStrategy` check `WRITE_EXTERNAL_STORAGE`, but the currently used `CameraUVC` path does not.
+
+Fix applied:
+
+- The app now creates OTG still-capture files under app-private external pictures storage first: `Context.GetExternalFilesDir(Environment.DirectoryPictures)/otg-captures`.
+- It falls back to external cache, then internal cache if app-private external storage is unavailable.
+- Before calling AUSBC, it creates the directory and performs a one-byte write/delete probe, logging only the storage category and writable status, never the full path.
+- No `MANAGE_EXTERNAL_STORAGE`, media permission, or broad storage runtime permission was added.

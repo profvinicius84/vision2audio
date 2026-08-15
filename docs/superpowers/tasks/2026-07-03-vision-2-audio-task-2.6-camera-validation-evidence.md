@@ -264,6 +264,35 @@ Wave 2 has concrete evidence for pass/fail/deferred gates, and current context a
 - Validation: Release APK publish passed. APK inspection showed logo-based splash outputs (`maui_splash.xml`, `maui_splash_image.xml`, density-specific `splash.jpeg`) and no `dotnet_bot` resource in the final APK inspection.
 - Remaining validation: uninstall the existing app, install the new APK, and cold-launch to avoid Android resource cache effects.
 
+## Follow-up AndroidUSBCamera 3.6.0 OTG evaluation and capture-timeout fix
+
+- Human request: return to OTG and update the USB camera library using `AndroidUSBCamera-3.6.0.zip`.
+- Zip findings: the archive contains 3.6.0 source for `CameraUVC`, `ICaptureCallBack`, `CameraRequest`, `AspectRatioTextureView`, and `com.jiangdg.usb.USBMonitor`, but only prebuilt `libnative-3.2.9.aar` and `libuvc-3.2.9.aar` AARs. It does not contain a matching prebuilt `libausbc` AAR.
+- Migration decision: full artifact migration to 3.6.0 is blocked until a matching built `libausbc` AAR is supplied or built. The two included AARs are byte-identical to the current `external/ausbc/` dependency AARs, so the binding remains on the current `libausbc-release.aar` plus compatible `3.2.9` dependencies.
+- Timeout root cause evidence: 3.6.0 source showed `CameraUVC.captureImageInternal(...)` waits for `mNV21DataQueue`; in OpenGL render mode the frame callback feeding that queue is registered only when `isRawPreviewData == true` or `isCaptureRawImage == true`.
+- Fix applied: `UsbCameraService.CreateSessionRequest(...)` now sets `SetRawPreviewData(true)` and `SetCaptureRawImage(true)` so AUSBC still capture can receive raw frames needed by `CaptureImage(...)`.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.AusbcBinding/Vision2Audio.AusbcBinding.csproj -f net10.0-android -v:minimal` — passed with generated binding warnings.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed with existing Android 16 native page-size warnings.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
+  - APK inspection found `Lcom/jiangdg/usb/USBMonitor;`, `Lcom/jiangdg/ausbc/camera/CameraUVC;`, and `Lcom/jiangdg/ausbc/callback/ICaptureCallBack;`; did not find `Lcom/serenegiant/usb/USBMonitor;`; no `secrets.local*` or secret-like entries found.
+- Remaining validation: physical Android 11 OTG/UVC retest is required to confirm that capture callback now completes instead of timing out.
+
+## Follow-up AUSBC storage-path permission error
+
+- Human report: after the raw-frame fix, OTG capture failed with an error about the USB camera/AUSBC lacking permission to access storage.
+- Root cause evidence from `AndroidUSBCamera-3.6.0.zip` source: `CameraUVC.captureImageInternal(savePath, callback)` writes the supplied path through `MediaUtils.saveYuv2Jpeg(...)` using `FileOutputStream(File(path))`; this path does not perform a broad storage permission check. AUSBC's own default save directory uses app-private external storage under `getExternalFilesDir(Environment.DIRECTORY_DCIM)/Camera`.
+- Fix applied: OTG capture now selects a writable app-private location before invoking AUSBC capture, preferring app-private external Pictures, then app external cache, then app internal cache. It creates the directory and performs a one-byte write/delete probe before capture.
+- Permission decision: no broad storage permission was added; no `MANAGE_EXTERNAL_STORAGE`, media permissions, or broad runtime storage permission were introduced because app-private external/cache paths should be writable on Android 11 without them.
+- Diagnostics added: sanitized lines distinguish storage probe/path readiness, callback `OnError`, AUSBC image failure, and timeout without logging full paths.
+- Validation:
+  - `dotnet test tests/Vision2Audio.Core.Tests/Vision2Audio.Core.Tests.csproj -v:minimal` — passed 14/14.
+  - `dotnet build src/Vision2Audio.AusbcBinding/Vision2Audio.AusbcBinding.csproj -f net10.0-android -v:minimal` — passed with generated binding warnings.
+  - `dotnet build src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -v:minimal` — passed with existing Android 16 native page-size warnings.
+  - `dotnet publish src/Vision2Audio.App/Vision2Audio.App.csproj -f net10.0-android -c Release -p:AndroidPackageFormat=apk -v:minimal` — passed with existing warnings.
+- Remaining validation: physical Android 11 OTG/UVC retest. If failure continues, collect `otg-capture-storage-probe`, `otg-capture-storage-path`, `otg-capture-callback`, `otg-capture-ausbc-image`, and `otg-capture-timeout` diagnostic lines.
+
 ## Follow-up resolution blocker fix
 
 - Human report: the physical OTG/UVC camera resolution is 640x480 and Android 11 validation hit a resolution-related error.

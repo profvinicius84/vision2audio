@@ -165,9 +165,44 @@ public sealed class UsbCameraService : IUsbCameraService
 
     private string CreateCapturePath()
     {
-        var captureDirectory = Path.Combine(_context.CacheDir?.AbsolutePath ?? FileSystem.CacheDirectory, "otg-captures");
+        var baseDirectory = _context.GetExternalFilesDir(Android.OS.Environment.DirectoryPictures)?.AbsolutePath;
+        var storageKind = "external-files-pictures";
+        if (string.IsNullOrWhiteSpace(baseDirectory))
+        {
+            baseDirectory = _context.ExternalCacheDir?.AbsolutePath;
+            storageKind = "external-cache";
+        }
+
+        if (string.IsNullOrWhiteSpace(baseDirectory))
+        {
+            baseDirectory = _context.CacheDir?.AbsolutePath ?? FileSystem.CacheDirectory;
+            storageKind = "internal-cache";
+        }
+
+        var captureDirectory = Path.Combine(baseDirectory, "otg-captures");
         Directory.CreateDirectory(captureDirectory);
+        VerifyCaptureDirectoryWritable(captureDirectory, storageKind);
+        Log.Debug("Vision2Audio", $"[Diagnostics] Operation=otg-capture-storage-path; Storage={storageKind}; DirectoryReady=True");
         return Path.Combine(captureDirectory, $"otg-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.jpg");
+    }
+
+    private static void VerifyCaptureDirectoryWritable(string captureDirectory, string storageKind)
+    {
+        var probePath = Path.Combine(captureDirectory, $"probe-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllBytes(probePath, [0]);
+            Log.Debug("Vision2Audio", $"[Diagnostics] Operation=otg-capture-storage-probe; Storage={storageKind}; Writable=True");
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            Log.Debug("Vision2Audio", $"[Diagnostics] Operation=otg-capture-storage-probe; Storage={storageKind}; Writable=False");
+            throw new InvalidOperationException("Armazenamento privado do app indisponível para captura OTG.", ex);
+        }
+        finally
+        {
+            DeleteCaptureFileBestEffort(probePath);
+        }
     }
 
     private static void DeleteCaptureFileBestEffort(string? path)
@@ -339,8 +374,8 @@ public sealed class UsbCameraService : IUsbCameraService
         var builder = new CameraRequest.Builder()
             .SetPreviewWidth(previewResolution.Width)
             .SetPreviewHeight(previewResolution.Height)
-            .SetRawPreviewData(false)
-            .SetCaptureRawImage(false)
+            .SetRawPreviewData(true)
+            .SetCaptureRawImage(true)
             .SetAspectRatioShow(true);
 
         if (CameraRequest.AudioSource.None is { } audioSource)
